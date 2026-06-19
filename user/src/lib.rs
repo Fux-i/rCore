@@ -11,6 +11,8 @@ pub mod console;
 mod lang_items;
 mod syscall;
 
+pub const STDOUT: usize = 1;
+
 unsafe extern "Rust" {
     fn main() -> i32;
 }
