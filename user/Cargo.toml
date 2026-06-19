@@ -1,5 +1,5 @@
 [package]
-name = "os"
+name = "user_lib"
 version = "0.1.0"
 authors = ["Yifan Wu <shinbokuow@163.com>"]
 edition = "2024"
@@ -8,9 +8,10 @@ edition = "2024"
 
 [dependencies]
 riscv = { version = "0.16", features = ["s-mode"] }
-lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
-log = "0.4"
-sbi-rt = { version = "0.0.2", features = ["legacy"] }
 
 [profile.release]
 debug = true
+
+# [features]
+# board_qemu = []
+# board_k210 = []
