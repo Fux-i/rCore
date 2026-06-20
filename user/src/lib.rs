@@ -11,8 +11,6 @@ pub mod console;
 mod lang_items;
 mod syscall;
 
-pub const STDOUT: usize = 1;
-
 unsafe extern "Rust" {
     fn main() -> i32;
 }
@@ -44,4 +42,10 @@ pub fn write(fd: usize, buf: &[u8]) -> isize {
 }
 pub fn exit(exit_code: i32) -> isize {
     sys_exit(exit_code)
+}
+pub fn yield_() -> isize {
+    sys_yield()
+}
+pub fn get_time() -> isize {
+    sys_get_time()
 }
