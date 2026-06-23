@@ -18,6 +18,7 @@ use crate::syscall::syscall;
 use crate::task::{exit_current_and_run_next, suspend_current_and_run_next};
 use crate::timer::set_next_trigger;
 use core::arch::global_asm;
+use log::trace;
 use riscv::interrupt::{Exception, Interrupt, Trap};
 use riscv::register::{mtvec::TrapMode, scause, sie, stval, stvec};
 
@@ -73,6 +74,7 @@ pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
             exit_current_and_run_next();
         }
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
+            trace!("[kernel] timer interrupt");
             set_next_trigger();
             suspend_current_and_run_next();
         }
