@@ -19,7 +19,7 @@ use crate::config::MAX_APP_NUM;
 use crate::loader::{get_num_app, init_app_cx};
 use crate::sbi::shutdown;
 use crate::sync::UPSafeCell;
-use crate::timer::get_time_ms;
+use crate::timer::{get_time_ms, get_time_ns};
 use lazy_static::*;
 use switch::__switch;
 use task::{TaskControlBlock, TaskStatus};
@@ -27,6 +27,19 @@ use task::{TaskControlBlock, TaskStatus};
 pub use context::TaskContext;
 
 use log::*;
+
+static mut SWITCH_TIME: usize = 0;
+static mut SWITCH_START: usize = 0;
+static mut SWITCH_COUNT: usize = 0;
+
+fn switch(current_task_cx_ptr: *mut TaskContext, next_task_cx_ptr: *const TaskContext) {
+    unsafe {
+        SWITCH_START = get_time_ns();
+        __switch(current_task_cx_ptr, next_task_cx_ptr);
+        SWITCH_TIME += get_time_ns() - SWITCH_START;
+        SWITCH_COUNT += 1;
+    }
+}
 
 /// The task manager, where all the tasks are managed.
 ///
@@ -183,12 +196,13 @@ impl TaskManager {
             drop(inner);
             trace!("run task{}", next);
             // before this, we should drop local variables that must be dropped manually
-            unsafe {
-                __switch(current_task_cx_ptr, next_task_cx_ptr);
-            }
+            switch(current_task_cx_ptr, next_task_cx_ptr);
             // go back to user mode
         } else {
             println!("All applications completed!");
+            debug!("Average task switch time: {}ns", unsafe {
+                SWITCH_TIME / SWITCH_COUNT
+            });
             shutdown(false);
         }
     }
