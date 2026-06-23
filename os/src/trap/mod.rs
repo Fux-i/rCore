@@ -47,6 +47,7 @@ pub fn enable_timer_interrupt() {
 #[unsafe(no_mangle)]
 /// handle an interrupt, exception, or system call from user space
 pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
+    crate::task::user_time_end();
     let scause = scause::read(); // get trap cause
     let stval = stval::read(); // get extra value
     let trap: Trap<Interrupt, Exception> = match scause.cause().try_into() {
@@ -82,6 +83,7 @@ pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
             panic!("Unsupported trap {:?}, stval = {:#x}!", trap, stval);
         }
     }
+    crate::task::user_time_start();
     cx
 }
 

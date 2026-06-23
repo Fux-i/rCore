@@ -19,13 +19,14 @@ use crate::config::MAX_APP_NUM;
 use crate::loader::{get_num_app, init_app_cx};
 use crate::sbi::shutdown;
 use crate::sync::UPSafeCell;
+use crate::timer::get_time_ms;
 use lazy_static::*;
 use switch::__switch;
 use task::{TaskControlBlock, TaskStatus};
 
 pub use context::TaskContext;
 
-use log::trace;
+use log::*;
 
 /// The task manager, where all the tasks are managed.
 ///
@@ -43,12 +44,47 @@ pub struct TaskManager {
     inner: UPSafeCell<TaskManagerInner>,
 }
 
+impl TaskManager {
+    fn user_time_start(&self) {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].kernel_time += inner.refresh_stop_watch();
+    }
+
+    fn user_time_end(&self) {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].user_time += inner.refresh_stop_watch();
+    }
+}
+
 /// Inner of Task Manager
 pub struct TaskManagerInner {
     /// task list
     tasks: [TaskControlBlock; MAX_APP_NUM],
     /// id of current `Running` task
     current_task: usize,
+    /// last time it recorded
+    stop_watch: usize,
+}
+
+impl TaskManagerInner {
+    fn refresh_stop_watch(&mut self) -> usize {
+        let last_time = self.stop_watch;
+        let current = get_time_ms();
+        self.stop_watch = current;
+        current - last_time
+    }
+}
+
+/// start user mode timer
+pub fn user_time_start() {
+    TASK_MANAGER.user_time_start();
+}
+
+/// end user mode timer
+pub fn user_time_end() {
+    TASK_MANAGER.user_time_end();
 }
 
 lazy_static! {
@@ -58,6 +94,8 @@ lazy_static! {
         let mut tasks = [TaskControlBlock {
             task_cx: TaskContext::zero_init(),
             task_status: TaskStatus::UnInit,
+            user_time: 0,
+            kernel_time: 0,
         }; MAX_APP_NUM];
         for (i, task) in tasks.iter_mut().enumerate() {
             task.task_cx = TaskContext::goto_restore(init_app_cx(i));
@@ -70,6 +108,7 @@ lazy_static! {
                 UPSafeCell::new(TaskManagerInner {
                     tasks,
                     current_task: 0,
+                    stop_watch: 0,
                 })
             },
         }
@@ -86,6 +125,7 @@ impl TaskManager {
         let task0 = &mut inner.tasks[0];
         task0.task_status = TaskStatus::Running;
         let next_task_cx_ptr = &task0.task_cx as *const TaskContext;
+        inner.refresh_stop_watch();
         drop(inner);
         trace!("run task0");
         let mut _unused = TaskContext::zero_init();
@@ -100,6 +140,7 @@ impl TaskManager {
     fn mark_current_suspended(&self) {
         let mut inner = self.inner.exclusive_access();
         let current = inner.current_task;
+        inner.tasks[current].kernel_time += inner.refresh_stop_watch();
         inner.tasks[current].task_status = TaskStatus::Ready;
         trace!("task{} suspended", current);
     }
@@ -108,6 +149,12 @@ impl TaskManager {
     fn mark_current_exited(&self) {
         let mut inner = self.inner.exclusive_access();
         let current = inner.current_task;
+        let user_time = inner.tasks[current].user_time;
+        let kernel_time = inner.tasks[current].kernel_time + inner.refresh_stop_watch();
+        debug!(
+            "task{} exited. user_time: {}ms, kernel time: {}ms",
+            current, user_time, kernel_time
+        );
         inner.tasks[current].task_status = TaskStatus::Exited;
     }
 
