@@ -1,4 +1,9 @@
 #![no_std]
+pub const SYSCALL_WRITE: usize = 64;
+pub const SYSCALL_EXIT: usize = 93;
+pub const SYSCALL_YIELD: usize = 124;
+pub const SYSCALL_GET_TIME: usize = 169;
+pub const SYSCALL_TRACE: usize = 410;
 
 macro_rules! linker_symbol_addr {
     ($symbol:path) => {
@@ -48,4 +53,23 @@ pub fn yield_() -> isize {
 }
 pub fn get_time() -> isize {
     sys_get_time()
+}
+
+pub fn sleep(period_ms: usize) {
+    let start = get_time();
+    while get_time() < start + period_ms as isize {
+        sys_yield();
+    }
+}
+
+pub fn trace_read(addr: *const u8) -> Option<isize> {
+    sys_trace(0, addr as usize, 0).into()
+}
+
+pub fn trace_write(addr: *const u8, data: u8) -> Option<isize> {
+    sys_trace(1, addr as usize, data as usize).into()
+}
+
+pub fn count_syscall(id: usize) -> isize {
+    sys_trace(2, id, 0)
 }

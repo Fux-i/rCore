@@ -69,24 +69,15 @@ impl TaskManager {
         let current = inner.current_task;
         inner.tasks[current].user_time += inner.refresh_stop_watch();
     }
-}
 
-/// Inner of Task Manager
-pub struct TaskManagerInner {
-    /// task list
-    tasks: [TaskControlBlock; MAX_APP_NUM],
-    /// id of current `Running` task
-    current_task: usize,
-    /// last time it recorded
-    stop_watch: usize,
-}
+    fn add_count(&self, index: usize) {
+        let mut inner = self.inner.exclusive_access();
+        inner.add_count(index);
+    }
 
-impl TaskManagerInner {
-    fn refresh_stop_watch(&mut self) -> usize {
-        let last_time = self.stop_watch;
-        let current = get_time_ms();
-        self.stop_watch = current;
-        current - last_time
+    fn get_count(&self, index: usize) -> isize {
+        let mut inner = self.inner.exclusive_access();
+        inner.get_count(index)
     }
 }
 
@@ -98,6 +89,45 @@ pub fn user_time_start() {
 /// end user mode timer
 pub fn user_time_end() {
     TASK_MANAGER.user_time_end();
+}
+
+/// add call times of a syscall
+pub fn add_count(index: usize) {
+    TASK_MANAGER.add_count(index);
+}
+
+/// get call times of a syscall
+pub fn get_count(index: usize) -> isize {
+    TASK_MANAGER.get_count(index)
+}
+
+/// Inner of Task Manager
+pub struct TaskManagerInner {
+    /// task list
+    tasks: [TaskControlBlock; MAX_APP_NUM],
+    /// id of current `Running` task
+    current_task: usize,
+    /// last time it recorded
+    stop_watch: usize,
+    /// syscall count record
+    counts: [[isize; 5]; MAX_APP_NUM],
+}
+
+impl TaskManagerInner {
+    fn refresh_stop_watch(&mut self) -> usize {
+        let last_time = self.stop_watch;
+        let current = get_time_ms();
+        self.stop_watch = current;
+        current - last_time
+    }
+
+    fn add_count(&mut self, index: usize) {
+        self.counts[self.current_task][index] += 1;
+    }
+
+    fn get_count(&mut self, index: usize) -> isize {
+        self.counts[self.current_task][index]
+    }
 }
 
 lazy_static! {
@@ -122,6 +152,7 @@ lazy_static! {
                     tasks,
                     current_task: 0,
                     stop_watch: 0,
+                    counts: [[0; 5]; MAX_APP_NUM],
                 })
             },
         }

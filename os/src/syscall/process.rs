@@ -22,3 +22,17 @@ pub fn sys_yield() -> isize {
 pub fn sys_get_time() -> isize {
     get_time_ms() as isize
 }
+
+pub fn sys_trace(_trace_request: usize, _id: usize, _data: usize) -> isize {
+    unsafe {
+        match _trace_request {
+            0 => (_id as *const isize).read(),
+            1 => {
+                (_id as *mut u8).write_bytes(_data as u8, 1);
+                0
+            }
+            2 => crate::task::get_count(super::map_index(_id)),
+            _ => -1,
+        }
+    }
+}
