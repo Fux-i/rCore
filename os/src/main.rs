@@ -26,7 +26,11 @@ macro_rules! linker_symbol_addr {
     };
 }
 
-use core::arch::global_asm;
+extern crate alloc;
+
+#[macro_use]
+extern crate bitflags;
+
 use log::*;
 
 #[path = "boards/qemu.rs"]
@@ -38,6 +42,7 @@ mod config;
 mod lang_items;
 mod loader;
 mod logging;
+mod mm;
 mod sbi;
 mod sync;
 pub mod syscall;
@@ -45,8 +50,8 @@ pub mod task;
 mod timer;
 pub mod trap;
 
-global_asm!(include_str!("entry.asm"));
-global_asm!(include_str!("link_app.S"));
+core::arch::global_asm!(include_str!("entry.asm"));
+core::arch::global_asm!(include_str!("link_app.S"));
 
 /// clear BSS segment
 fn clear_bss() {
@@ -69,8 +74,11 @@ pub fn rust_main() -> ! {
     clear_bss();
     logging::init();
     info!("[kernel] Hello, world!");
+    mm::init();
+    info!("[kernel] back to world!");
+    mm::remap_test();
     trap::init();
-    loader::load_apps();
+    //trap::enable_interrupt();
     trap::enable_timer_interrupt();
     timer::set_next_trigger();
     task::run_first_task();
