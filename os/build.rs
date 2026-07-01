@@ -2,6 +2,7 @@ use std::fs::{File, read_dir};
 use std::io::{Result, Write};
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=APP_DIR");
     println!("cargo:rerun-if-changed=../user/src/");
     println!("cargo:rerun-if-changed={}", TARGET_PATH);
     insert_app_data().unwrap();
@@ -11,7 +12,8 @@ static TARGET_PATH: &str = "../user/target/riscv64gc-unknown-none-elf/release/";
 
 fn insert_app_data() -> Result<()> {
     let mut f = File::create("src/link_app.S").unwrap();
-    let mut apps: Vec<_> = read_dir("../user/src/bin")
+    let app_dir = std::env::var("APP_DIR").unwrap_or_else(|_| "../user/src/bin".to_string());
+    let mut apps: Vec<_> = read_dir(&app_dir)
         .unwrap()
         .into_iter()
         .map(|dir_entry| {
@@ -21,6 +23,7 @@ fn insert_app_data() -> Result<()> {
         })
         .collect();
     apps.sort();
+    println!("cargo:rerun-if-changed={}", app_dir);
 
     writeln!(
         f,

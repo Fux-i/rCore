@@ -11,6 +11,30 @@ edition = "2024"
 [profile.release]
 debug = true
 
+[[bin]]
+name = "mmap0"
+path = "src/test/mmap0.rs"
+
+[[bin]]
+name = "mmap1"
+path = "src/test/mmap1.rs"
+
+[[bin]]
+name = "mmap2"
+path = "src/test/mmap2.rs"
+
+[[bin]]
+name = "mmap3"
+path = "src/test/mmap3.rs"
+
+[[bin]]
+name = "unmap"
+path = "src/test/unmap.rs"
+
+[[bin]]
+name = "unmap2"
+path = "src/test/unmap2.rs"
+
 # [features]
 # board_qemu = []
 # board_k210 = []

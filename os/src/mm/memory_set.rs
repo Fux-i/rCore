@@ -253,6 +253,35 @@ impl MemorySet {
     pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
         self.page_table.translate(vpn)
     }
+    pub fn mmap(&mut self, start: VirtAddr, end: VirtAddr, permission: MapPermission) -> bool {
+        let vpn_range = VPNRange::new(start.floor(), end.ceil());
+        for vpn in vpn_range {
+            if let Some(pte) = self.translate(vpn)
+                && pte.is_valid()
+            {
+                return false;
+            }
+        }
+        let map_area = MapArea::new(start, end, MapType::Framed, permission);
+        self.push(map_area, None);
+        true
+    }
+    pub fn munmap(&mut self, start: VirtAddr, end: VirtAddr) -> bool {
+        let vpn_range = VPNRange::new(start.floor(), end.ceil());
+        for vpn in vpn_range {
+            if self.translate(vpn).is_none_or(|pte| !pte.is_valid()) {
+                return false;
+            }
+        }
+        for vpn in vpn_range {
+            if let Some(area) = self.areas.iter_mut().find(|area| area.contains_mapped(vpn)) {
+                area.unmap_one(&mut self.page_table, vpn);
+            } else {
+                return false;
+            }
+        }
+        true
+    }
     #[allow(unused)]
     pub fn shrink_to(&mut self, start: VirtAddr, new_end: VirtAddr) -> bool {
         if let Some(area) = self
@@ -351,6 +380,14 @@ impl MapArea {
             self.map_one(page_table, vpn)
         }
         self.vpn_range = VPNRange::new(self.vpn_range.get_start(), new_end);
+    }
+    fn contains_mapped(&self, vpn: VirtPageNum) -> bool {
+        match self.map_type {
+            MapType::Identical => {
+                self.vpn_range.get_start() <= vpn && vpn < self.vpn_range.get_end()
+            }
+            MapType::Framed => self.data_frames.contains_key(&vpn),
+        }
     }
     /// data: start-aligned but maybe with shorter length
     /// assume that all frames were cleared before

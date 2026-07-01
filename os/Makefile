@@ -10,6 +10,8 @@ ifeq ($(MODE), release)
 	MODE_ARG := --release
 endif
 
+USER_APP_DIR ?= src/bin
+
 # BOARD
 BOARD := qemu
 SBI ?= rustsbi
@@ -37,10 +39,10 @@ $(KERNEL_BIN): kernel
 	@$(OBJCOPY) $(KERNEL_ELF) --strip-all -O binary $@
 
 kernel:
-	@cd ../user && make build
+	@cd ../user && make build APP_DIR=$(USER_APP_DIR)
 	@echo Platform: $(BOARD)
 	@cp src/linker-$(BOARD).ld src/linker.ld
-	@cargo build $(MODE_ARG)
+	@APP_DIR=../user/$(USER_APP_DIR) cargo build $(MODE_ARG)
 	@rm src/linker.ld
 
 
@@ -69,6 +71,9 @@ qemu-version-check:
 run-inner: qemu-version-check build
 	@qemu-system-riscv64 $(QEMU_ARGS)
 
+test: USER_APP_DIR := src/test
+test: run-inner
+
 debug: qemu-version-check build
 	@tmux new-session -d \
 		"qemu-system-riscv64 $(QEMU_ARGS) -s -S" && \
@@ -81,4 +86,4 @@ gdbserver: qemu-version-check build
 gdbclient:
 	@riscv64-unknown-elf-gdb -ex 'file $(KERNEL_ELF)' -ex 'set arch riscv:rv64' -ex 'target remote localhost:1234'
 
-.PHONY: build env kernel clean disasm disasm-vim run-inner gdbserver gdbclient qemu-version-check
+.PHONY: build env kernel clean disasm disasm-vim run-inner test gdbserver gdbclient qemu-version-check

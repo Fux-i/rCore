@@ -15,6 +15,7 @@ mod switch;
 mod task;
 
 use crate::loader::{get_app_data, get_num_app};
+use crate::mm::MemorySet;
 use crate::sbi::shutdown;
 use crate::sync::UPSafeCell;
 use crate::trap::TrapContext;
@@ -134,6 +135,13 @@ impl TaskManager {
         inner.tasks[cur].change_program_brk(size)
     }
 
+    /// Mutably access the current task's memory set.
+    pub fn with_current_memory_set<T>(&self, f: impl FnOnce(&mut MemorySet) -> T) -> T {
+        let mut inner = self.inner.exclusive_access();
+        let cur = inner.current_task;
+        f(&mut inner.tasks[cur].memory_set)
+    }
+
     /// Switch current `Running` task to the task we have found,
     /// or there is no `Ready` task and we can exit with all applications completed
     fn run_next_task(&self) {
@@ -203,4 +211,9 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
 /// Change the current 'Running' task's program break
 pub fn change_program_brk(size: i32) -> Option<usize> {
     TASK_MANAGER.change_current_program_brk(size)
+}
+
+/// Mutably access the current task's memory set.
+pub fn with_current_memory_set<T>(f: impl FnOnce(&mut MemorySet) -> T) -> T {
+    TASK_MANAGER.with_current_memory_set(f)
 }
